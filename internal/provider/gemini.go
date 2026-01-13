@@ -95,7 +95,8 @@ type geminiGenerationConfig struct {
 }
 
 type geminiThinkingConfig struct {
-	ThinkingBudget int `json:"thinkingBudget,omitempty"` // Token budget for thinking
+	ThinkingBudget int    `json:"thinkingBudget,omitempty"` // Token budget for thinking (Gemini 2.x)
+	ThinkingLevel  string `json:"thinkingLevel,omitempty"`  // Thinking level: "low", "medium", "high" (Gemini 3.x)
 }
 
 type geminiTool struct {
@@ -428,8 +429,16 @@ func (g *Gemini) buildRequest(req ChatRequest) geminiRequest {
 
 	// Enable thinking mode for supported models
 	if g.enableThought && isThinkingModel(req.Model) {
-		config.ThinkingConfig = &geminiThinkingConfig{
-			ThinkingBudget: 8192, // Default thinking budget
+		if isGemini3Model(req.Model) {
+			// Gemini 3 uses thinking_level parameter
+			config.ThinkingConfig = &geminiThinkingConfig{
+				ThinkingLevel: "medium", // Options: "low", "medium", "high"
+			}
+		} else {
+			// Gemini 2.x uses thinkingBudget parameter
+			config.ThinkingConfig = &geminiThinkingConfig{
+				ThinkingBudget: 8192, // Default thinking budget
+			}
 		}
 	}
 
@@ -450,6 +459,8 @@ func (g *Gemini) buildRequest(req ChatRequest) geminiRequest {
 // isThinkingModel returns true if the model supports thinking mode
 func isThinkingModel(model string) bool {
 	thinkingModels := []string{
+		"gemini-3-pro",
+		"gemini-3-flash",
 		"gemini-2.5-pro",
 		"gemini-2.5-flash",
 		"gemini-2.0-flash-thinking",
@@ -460,6 +471,11 @@ func isThinkingModel(model string) bool {
 		}
 	}
 	return false
+}
+
+// isGemini3Model returns true if the model is a Gemini 3.x model
+func isGemini3Model(model string) bool {
+	return strings.Contains(model, "gemini-3")
 }
 
 // SetAPIKey updates the API key

@@ -277,6 +277,8 @@ func GetMaxTokensForModel(provider, model string) int {
 		return 200000
 	case "gemini":
 		switch {
+		case strings.Contains(model, "gemini-3"):
+			return 1048576 // 1M context, 64k output
 		case strings.Contains(model, "gemini-1.5-pro"):
 			return 2097152 // 2M context
 		case strings.Contains(model, "gemini-2.5"), strings.Contains(model, "gemini-2.0"),
