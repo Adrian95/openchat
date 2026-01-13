@@ -111,7 +111,7 @@ func (m *Model) sendToAI(content string) (tea.Model, tea.Cmd) {
 	m.updateViewportContent()
 
 	// Build request
-	messages := make([]provider.Message, 0, len(m.messages)+1)
+	messages := make([]provider.Message, 0, len(m.messages)+10)
 
 	// Add system prompt if exists
 	if m.currentSession.SystemPrompt != "" {
@@ -121,10 +121,37 @@ func (m *Model) sendToAI(content string) (tea.Model, tea.Cmd) {
 		})
 	}
 
+	// Add attached file contents as system context
+	if m.currentSession != nil {
+		attachments, _ := m.store.GetActiveAttachments(m.currentSession.ID)
+		if len(attachments) > 0 {
+			var contextBuilder strings.Builder
+			contextBuilder.WriteString("The following files are attached as context:\n\n")
+			for _, att := range attachments {
+				contextBuilder.WriteString("--- File: ")
+				contextBuilder.WriteString(att.Filename)
+				contextBuilder.WriteString(" ---\n")
+				contextBuilder.WriteString(att.Content)
+				contextBuilder.WriteString("\n--- End of ")
+				contextBuilder.WriteString(att.Filename)
+				contextBuilder.WriteString(" ---\n\n")
+			}
+			messages = append(messages, provider.Message{
+				Role:    provider.RoleSystem,
+				Content: contextBuilder.String(),
+			})
+		}
+	}
+
 	// Add conversation history
 	for _, msg := range m.messages {
+		// Map summary role to system for the provider
+		role := provider.Role(msg.Role)
+		if msg.Role == store.RoleSummary {
+			role = provider.RoleSystem
+		}
 		messages = append(messages, provider.Message{
-			Role:    provider.Role(msg.Role),
+			Role:    role,
 			Content: msg.Content,
 		})
 	}
