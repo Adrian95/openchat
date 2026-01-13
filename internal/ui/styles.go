@@ -136,6 +136,85 @@ var (
 			Foreground(warningColor).
 			Bold(true).
 			Blink(true)
+
+	// Context meter styles (token usage indicator)
+	contextNormalStyle = lipgloss.NewStyle().
+				Foreground(successColor).
+				Padding(0, 1)
+
+	contextLowStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("226")). // Yellow
+			Padding(0, 1)
+
+	contextMediumStyle = lipgloss.NewStyle().
+				Foreground(warningColor).
+				Padding(0, 1)
+
+	contextHighStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("208")). // Orange
+			Bold(true).
+			Padding(0, 1)
+
+	contextCriticalStyle = lipgloss.NewStyle().
+				Foreground(errorColor).
+				Bold(true).
+				Padding(0, 1)
+
+	// Attachment indicator
+	attachmentIndicatorStyle = lipgloss.NewStyle().
+					Foreground(lipgloss.Color("141")). // Purple
+					Padding(0, 1)
+
+	// Gemini feature indicator (thinking and grounding)
+	geminiFeatureStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("39")). // Blue (Google blue)
+				Padding(0, 1)
+
+	// Search result styles
+	searchResultStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("252")).
+				Padding(0, 1)
+
+	searchSelectedStyle = lipgloss.NewStyle().
+				Background(primaryColor).
+				Foreground(lipgloss.Color("230")).
+				Padding(0, 1)
+
+	searchSnippetStyle = lipgloss.NewStyle().
+				Foreground(mutedColor).
+				Italic(true)
+
+	searchHighlightStyle = lipgloss.NewStyle().
+				Foreground(warningColor).
+				Bold(true)
+
+	// Attachment styles
+	attachmentItemStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("252")).
+				Padding(0, 1)
+
+	attachmentSelectedStyle = lipgloss.NewStyle().
+				Background(primaryColor).
+				Foreground(lipgloss.Color("230")).
+				Padding(0, 1)
+
+	attachmentActiveStyle = lipgloss.NewStyle().
+				Foreground(successColor).
+				Padding(0, 1)
+
+	attachmentInactiveStyle = lipgloss.NewStyle().
+				Foreground(mutedColor).
+				Padding(0, 1)
+
+	// Summary message style
+	summaryMessageStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("147")). // Light purple
+				Italic(true)
+
+	summaryLabelStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("147")).
+				Bold(true).
+				SetString("📋 Summary")
 )
 
 // TODO: Add theme support - light/dark mode switching

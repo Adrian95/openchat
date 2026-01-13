@@ -15,6 +15,7 @@
 //
 //	OPENAI_API_KEY     - OpenAI API key
 //	ANTHROPIC_API_KEY  - Anthropic API key
+//	GEMINI_API_KEY     - Google Gemini API key
 //	GROQ_API_KEY       - Groq API key (future)
 //	OPENROUTER_API_KEY - OpenRouter API key (future)
 package main
@@ -116,7 +117,10 @@ func main() {
 	anthropicProvider := provider.NewAnthropic(anthropicKey)
 	registry.Register(anthropicProvider)
 
-	// TODO: Register additional providers (Groq, OpenRouter, local models)
+	// Register Gemini provider
+	geminiKey := cfg.GetAPIKey("gemini")
+	geminiProvider := provider.NewGemini(geminiKey)
+	registry.Register(geminiProvider)
 
 	// Create UI model
 	model := ui.NewModel(cfg, st, exp, registry)
@@ -149,8 +153,7 @@ OPTIONS:
 ENVIRONMENT VARIABLES:
     OPENAI_API_KEY      OpenAI API key
     ANTHROPIC_API_KEY   Anthropic API key
-    GROQ_API_KEY        Groq API key (future support)
-    OPENROUTER_API_KEY  OpenRouter API key (future support)
+    GEMINI_API_KEY      Google Gemini API key
 
 CONFIGURATION:
     Config file: ~/.chatui/config.json
@@ -158,15 +161,22 @@ CONFIGURATION:
     Exports:     ~/.chatui/exports/
 
 COMMANDS (in-app):
-    /new [name]     Create a new chat session
-    /switch         Switch between sessions
-    /connect        Configure API keys
-    /model          Select provider/model
-    /export         Export session to Markdown
-    /clear          Clear current session
-    /rename <name>  Rename current session
-    /system <text>  Set system prompt
-    /help           Show help
+    /new [name]       Create a new chat session
+    /switch           Switch between sessions
+    /connect          Configure API keys
+    /model            Select provider/model
+    /export           Export session to Markdown
+    /clear            Clear current session
+    /rename <name>    Rename current session
+    /system <text>    Set system prompt
+    /search [query]   Search across all chats
+    /attach <path>    Attach file to context
+    /vault            Manage attachments
+    /summarize [n]    Summarize older messages
+    /context          Show context usage
+    /thinking         Toggle Gemini thinking mode
+    /grounding        Toggle Gemini search grounding
+    /help             Show help
 
 KEYBINDINGS:
     Ctrl+Enter      Send message

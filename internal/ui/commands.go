@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/user/openchat/internal/provider"
 	"github.com/user/openchat/internal/store"
 )
 
@@ -39,6 +40,20 @@ func (m *Model) handleCommand(input string) (tea.Model, tea.Cmd) {
 		return m.cmdRename(args)
 	case "/system":
 		return m.cmdSystem(args)
+	case "/search":
+		return m.cmdSearch(args)
+	case "/attach":
+		return m.cmdAttach(args)
+	case "/attachments", "/vault":
+		return m.cmdAttachments()
+	case "/summarize":
+		return m.cmdSummarize(args)
+	case "/context":
+		return m.cmdContext()
+	case "/thinking":
+		return m.cmdThinking()
+	case "/grounding", "/search-grounding":
+		return m.cmdGrounding()
 	default:
 		m.errorMessage = "Unknown command: " + cmd + ". Type /help for available commands."
 		return m, nil
@@ -306,4 +321,242 @@ func (m *Model) loadModels() tea.Cmd {
 		m.availableModels = models
 		return nil
 	}
+}
+
+// cmdSearch opens the search view
+func (m *Model) cmdSearch(args []string) (tea.Model, tea.Cmd) {
+	m.currentView = ViewSearch
+	m.searchQuery = ""
+	m.searchResults = nil
+	m.searchIndex = 0
+	m.selectedSnippets = make(map[string]bool)
+
+	// If args provided, use as initial search query
+	if len(args) > 0 {
+		m.searchQuery = strings.Join(args, " ")
+		return m, m.performSearch()
+	}
+
+	return m, nil
+}
+
+// cmdAttach attaches a file to the current session's context vault
+func (m *Model) cmdAttach(args []string) (tea.Model, tea.Cmd) {
+	if m.currentSession == nil {
+		m.errorMessage = "No session selected. Create a session first."
+		return m, nil
+	}
+
+	if len(args) == 0 {
+		m.errorMessage = "Usage: /attach <path>"
+		return m, nil
+	}
+
+	path := strings.Join(args, " ")
+	return m, m.previewFile(path)
+}
+
+// cmdAttachments opens the attachments management view
+func (m *Model) cmdAttachments() (tea.Model, tea.Cmd) {
+	if m.currentSession == nil {
+		m.errorMessage = "No session selected"
+		return m, nil
+	}
+
+	m.currentView = ViewAttachments
+	m.attachmentIndex = 0
+	m.attachmentPreview = ""
+	return m, m.loadAttachments()
+}
+
+// cmdSummarize summarizes older messages to reduce context size
+func (m *Model) cmdSummarize(args []string) (tea.Model, tea.Cmd) {
+	if m.currentSession == nil {
+		m.errorMessage = "No session selected"
+		return m, nil
+	}
+
+	if len(m.messages) < 4 {
+		m.errorMessage = "Not enough messages to summarize (need at least 4)"
+		return m, nil
+	}
+
+	// Determine how many messages to summarize
+	// Default: keep last 4 messages, summarize the rest
+	keepCount := 4
+	if len(args) > 0 {
+		// Parse the keep count
+		n := 0
+		for _, c := range args[0] {
+			if c >= '0' && c <= '9' {
+				n = n*10 + int(c-'0')
+			}
+		}
+		if n > 0 && n < len(m.messages) {
+			keepCount = n
+		}
+	}
+
+	if len(m.messages) <= keepCount {
+		m.errorMessage = "Not enough messages to summarize"
+		return m, nil
+	}
+
+	// Get messages to summarize (all except the last keepCount)
+	toSummarize := m.messages[:len(m.messages)-keepCount]
+	if len(toSummarize) == 0 {
+		m.errorMessage = "No messages to summarize"
+		return m, nil
+	}
+
+	m.statusMessage = "Generating summary..."
+
+	return m, m.generateSummary(toSummarize, keepCount)
+}
+
+// generateSummary creates a summary of the given messages using the AI
+func (m *Model) generateSummary(messages []*store.Message, keepCount int) tea.Cmd {
+	return func() tea.Msg {
+		// Build a prompt asking for a summary
+		var contentBuilder strings.Builder
+		contentBuilder.WriteString("Please provide a concise summary of the following conversation. ")
+		contentBuilder.WriteString("Capture the key points, decisions, and any important context that should be preserved:\n\n")
+
+		for _, msg := range messages {
+			contentBuilder.WriteString(string(msg.Role))
+			contentBuilder.WriteString(": ")
+			contentBuilder.WriteString(msg.Content)
+			contentBuilder.WriteString("\n\n")
+		}
+
+		// Create summary request message
+		return summarizeRequestMsg{
+			messages:         messages,
+			summaryPrompt:    contentBuilder.String(),
+			keepRecentCount:  keepCount,
+			startMessageID:   messages[0].ID,
+			endMessageID:     messages[len(messages)-1].ID,
+		}
+	}
+}
+
+// cmdContext shows current context information
+func (m *Model) cmdContext() (tea.Model, tea.Cmd) {
+	m.updateContextInfo()
+
+	var info strings.Builder
+	info.WriteString("Context Usage:\n")
+	info.WriteString("  Tokens: ")
+	info.WriteString(formatInt(m.contextInfo.UsedTokens))
+	info.WriteString(" / ")
+	info.WriteString(formatInt(m.contextInfo.MaxTokens))
+	info.WriteString(" (")
+	info.WriteString(formatInt(int(m.contextInfo.UsagePercent)))
+	info.WriteString("%)\n")
+	info.WriteString("  Remaining: ")
+	info.WriteString(formatInt(m.contextInfo.RemainingTokens))
+	info.WriteString(" tokens")
+
+	// Add attachment info
+	if m.currentSession != nil {
+		atts, _ := m.store.GetActiveAttachments(m.currentSession.ID)
+		if len(atts) > 0 {
+			var totalSize int64
+			for _, att := range atts {
+				totalSize += att.SizeBytes
+			}
+			info.WriteString("\n  Attachments: ")
+			info.WriteString(formatInt(len(atts)))
+			info.WriteString(" file(s), ")
+			info.WriteString(formatSize(totalSize))
+		}
+	}
+
+	// Add summary info
+	if m.currentSession != nil {
+		summaries, _ := m.store.GetSummaries(m.currentSession.ID)
+		if len(summaries) > 0 {
+			var savedTokens int
+			for _, s := range summaries {
+				savedTokens += s.OriginalTokenCount - s.SummaryTokenCount
+			}
+			info.WriteString("\n  Summaries: ")
+			info.WriteString(formatInt(len(summaries)))
+			info.WriteString(" (saved ~")
+			info.WriteString(formatInt(savedTokens))
+			info.WriteString(" tokens)")
+		}
+	}
+
+	m.statusMessage = info.String()
+	return m, nil
+}
+
+// summarizeRequestMsg is sent when a summary needs to be generated
+type summarizeRequestMsg struct {
+	messages        []*store.Message
+	summaryPrompt   string
+	keepRecentCount int
+	startMessageID  string
+	endMessageID    string
+}
+
+// summarizeCompleteMsg is sent when a summary has been generated
+type summarizeCompleteMsg struct {
+	summary          string
+	startMessageID   string
+	endMessageID     string
+	originalTokens   int
+	summaryTokens    int
+	err              error
+}
+
+// cmdThinking toggles Gemini thinking mode
+func (m *Model) cmdThinking() (tea.Model, tea.Cmd) {
+	// Check if current provider is Gemini
+	if m.currentProvider == nil || m.currentProvider.Name() != "gemini" {
+		m.errorMessage = "Thinking mode is only available for Gemini models"
+		return m, nil
+	}
+
+	// Toggle thinking mode
+	m.geminiThinking = !m.geminiThinking
+
+	// Update the provider
+	if gemini, ok := m.currentProvider.(*provider.Gemini); ok {
+		gemini.SetThinkingEnabled(m.geminiThinking)
+	}
+
+	if m.geminiThinking {
+		m.statusMessage = "Thinking mode enabled (Gemini will show reasoning)"
+	} else {
+		m.statusMessage = "Thinking mode disabled"
+	}
+
+	return m, nil
+}
+
+// cmdGrounding toggles Gemini Google Search grounding
+func (m *Model) cmdGrounding() (tea.Model, tea.Cmd) {
+	// Check if current provider is Gemini
+	if m.currentProvider == nil || m.currentProvider.Name() != "gemini" {
+		m.errorMessage = "Search grounding is only available for Gemini models"
+		return m, nil
+	}
+
+	// Toggle grounding
+	m.geminiGrounding = !m.geminiGrounding
+
+	// Update the provider
+	if gemini, ok := m.currentProvider.(*provider.Gemini); ok {
+		gemini.SetSearchEnabled(m.geminiGrounding)
+	}
+
+	if m.geminiGrounding {
+		m.statusMessage = "Search grounding enabled (Gemini will use Google Search)"
+	} else {
+		m.statusMessage = "Search grounding disabled"
+	}
+
+	return m, nil
 }
