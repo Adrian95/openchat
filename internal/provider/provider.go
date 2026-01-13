@@ -130,5 +130,12 @@ var DefaultModels = map[string][]ModelInfo{
 		{ID: "claude-3-5-haiku-20241022", Name: "Claude 3.5 Haiku", Provider: "anthropic", MaxTokens: 200000, Description: "Fast and affordable"},
 		{ID: "claude-3-opus-20240229", Name: "Claude 3 Opus", Provider: "anthropic", MaxTokens: 200000, Description: "Previous flagship model"},
 	},
-	// TODO: Add more providers (Groq, OpenRouter, local models)
+	"gemini": {
+		{ID: "gemini-2.5-pro-preview-06-05", Name: "Gemini 2.5 Pro", Provider: "gemini", MaxTokens: 1048576, Description: "Most capable Gemini with thinking"},
+		{ID: "gemini-2.5-flash-preview-05-20", Name: "Gemini 2.5 Flash", Provider: "gemini", MaxTokens: 1048576, Description: "Fast Gemini with thinking"},
+		{ID: "gemini-2.0-flash", Name: "Gemini 2.0 Flash", Provider: "gemini", MaxTokens: 1048576, Description: "Next-gen fast model"},
+		{ID: "gemini-2.0-flash-thinking-exp", Name: "Gemini 2.0 Flash Thinking", Provider: "gemini", MaxTokens: 1048576, Description: "Experimental thinking model"},
+		{ID: "gemini-1.5-pro", Name: "Gemini 1.5 Pro", Provider: "gemini", MaxTokens: 2097152, Description: "2M context window"},
+		{ID: "gemini-1.5-flash", Name: "Gemini 1.5 Flash", Provider: "gemini", MaxTokens: 1048576, Description: "Fast and efficient"},
+	},
 }

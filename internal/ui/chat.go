@@ -187,6 +187,11 @@ func (m *Model) streamResponse(req provider.ChatRequest) tea.Cmd {
 			p.SetAPIKey(apiKey)
 		case *provider.Anthropic:
 			p.SetAPIKey(apiKey)
+		case *provider.Gemini:
+			p.SetAPIKey(apiKey)
+			// Apply Gemini-specific settings from model state
+			p.SetThinkingEnabled(m.geminiThinking)
+			p.SetSearchEnabled(m.geminiGrounding)
 		}
 
 		if prov.SupportsStreaming() {

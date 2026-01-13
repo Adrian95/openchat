@@ -29,6 +29,8 @@ func (e *Estimator) EstimateTokens(text string) int {
 		return e.estimateOpenAI(text)
 	case "anthropic":
 		return e.estimateAnthropic(text)
+	case "gemini":
+		return e.estimateGemini(text)
 	default:
 		// Fallback to a general estimation
 		return e.estimateGeneral(text)
@@ -124,6 +126,37 @@ func (e *Estimator) estimateAnthropic(text string) int {
 	for _, r := range text {
 		if r > 127 {
 			estimate += 0.5 // Non-ASCII chars typically need more tokens
+		}
+	}
+
+	if estimate < 1 && runeCount > 0 {
+		estimate = 1
+	}
+
+	return int(estimate)
+}
+
+// estimateGemini estimates tokens for Google Gemini models.
+// Gemini uses a SentencePiece-based tokenizer similar to other modern LLMs.
+func (e *Estimator) estimateGemini(text string) int {
+	runeCount := utf8.RuneCountInString(text)
+	if runeCount == 0 {
+		return 0
+	}
+
+	// Gemini's tokenizer is similar to other BPE tokenizers
+	// Average ~4 characters per token for English text
+
+	words := len(strings.Fields(text))
+	charEstimate := float64(len(text)) / 4.0
+	wordEstimate := float64(words) * 1.3
+
+	estimate := (charEstimate + wordEstimate) / 2.0
+
+	// Adjust for non-ASCII
+	for _, r := range text {
+		if r > 127 {
+			estimate += 0.5
 		}
 	}
 
@@ -242,6 +275,16 @@ func GetMaxTokensForModel(provider, model string) int {
 	case "anthropic":
 		// Claude models generally have 200k context
 		return 200000
+	case "gemini":
+		switch {
+		case strings.Contains(model, "gemini-1.5-pro"):
+			return 2097152 // 2M context
+		case strings.Contains(model, "gemini-2.5"), strings.Contains(model, "gemini-2.0"),
+			strings.Contains(model, "gemini-1.5"):
+			return 1048576 // 1M context
+		default:
+			return 1048576
+		}
 	default:
 		return 8192
 	}

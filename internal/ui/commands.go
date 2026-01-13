@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/user/openchat/internal/provider"
 	"github.com/user/openchat/internal/store"
 )
 
@@ -49,6 +50,10 @@ func (m *Model) handleCommand(input string) (tea.Model, tea.Cmd) {
 		return m.cmdSummarize(args)
 	case "/context":
 		return m.cmdContext()
+	case "/thinking":
+		return m.cmdThinking()
+	case "/grounding", "/search-grounding":
+		return m.cmdGrounding()
 	default:
 		m.errorMessage = "Unknown command: " + cmd + ". Type /help for available commands."
 		return m, nil
@@ -504,4 +509,54 @@ type summarizeCompleteMsg struct {
 	originalTokens   int
 	summaryTokens    int
 	err              error
+}
+
+// cmdThinking toggles Gemini thinking mode
+func (m *Model) cmdThinking() (tea.Model, tea.Cmd) {
+	// Check if current provider is Gemini
+	if m.currentProvider == nil || m.currentProvider.Name() != "gemini" {
+		m.errorMessage = "Thinking mode is only available for Gemini models"
+		return m, nil
+	}
+
+	// Toggle thinking mode
+	m.geminiThinking = !m.geminiThinking
+
+	// Update the provider
+	if gemini, ok := m.currentProvider.(*provider.Gemini); ok {
+		gemini.SetThinkingEnabled(m.geminiThinking)
+	}
+
+	if m.geminiThinking {
+		m.statusMessage = "Thinking mode enabled (Gemini will show reasoning)"
+	} else {
+		m.statusMessage = "Thinking mode disabled"
+	}
+
+	return m, nil
+}
+
+// cmdGrounding toggles Gemini Google Search grounding
+func (m *Model) cmdGrounding() (tea.Model, tea.Cmd) {
+	// Check if current provider is Gemini
+	if m.currentProvider == nil || m.currentProvider.Name() != "gemini" {
+		m.errorMessage = "Search grounding is only available for Gemini models"
+		return m, nil
+	}
+
+	// Toggle grounding
+	m.geminiGrounding = !m.geminiGrounding
+
+	// Update the provider
+	if gemini, ok := m.currentProvider.(*provider.Gemini); ok {
+		gemini.SetSearchEnabled(m.geminiGrounding)
+	}
+
+	if m.geminiGrounding {
+		m.statusMessage = "Search grounding enabled (Gemini will use Google Search)"
+	} else {
+		m.statusMessage = "Search grounding disabled"
+	}
+
+	return m, nil
 }

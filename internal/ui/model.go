@@ -95,6 +95,10 @@ type Model struct {
 	pendingAttachment   *store.Attachment
 	attachmentPreview   string
 	attachMaxSize       int64 // Max file size in bytes (default 1MB)
+
+	// Gemini-specific state
+	geminiThinking  bool // Enable thinking mode for Gemini
+	geminiGrounding bool // Enable Google Search grounding for Gemini
 }
 
 // NewModel creates a new chat UI model
@@ -450,6 +454,20 @@ func (m *Model) renderStatusBar() string {
 		}
 	}
 
+	// Gemini features indicator
+	if m.currentProvider != nil && m.currentProvider.Name() == "gemini" {
+		var geminiFeatures []string
+		if m.geminiThinking {
+			geminiFeatures = append(geminiFeatures, "🧠")
+		}
+		if m.geminiGrounding {
+			geminiFeatures = append(geminiFeatures, "🔍")
+		}
+		if len(geminiFeatures) > 0 {
+			parts = append(parts, geminiFeatureStyle.Render(strings.Join(geminiFeatures, "")))
+		}
+	}
+
 	// Streaming indicator
 	if m.streaming {
 		parts = append(parts, streamingStyle.Render(" ● STREAMING"))
@@ -666,6 +684,11 @@ func generateHelpText() string {
 │  /summarize [n]    Summarize older messages           │
 │                    (keeps last n messages, default 4) │
 │                                                       │
+│  GEMINI FEATURES                                      │
+│  ───────────────                                      │
+│  /thinking         Toggle thinking mode (reasoning)   │
+│  /grounding        Toggle Google Search grounding     │
+│                                                       │
 │  KEYBINDINGS                                          │
 │  ──────────                                           │
 │  Ctrl+Enter        Send message                       │
@@ -719,6 +742,8 @@ func (m *Model) executeSummarize(req summarizeRequestMsg) tea.Cmd {
 		case *provider.OpenAI:
 			p.SetAPIKey(apiKey)
 		case *provider.Anthropic:
+			p.SetAPIKey(apiKey)
+		case *provider.Gemini:
 			p.SetAPIKey(apiKey)
 		}
 

@@ -165,6 +165,11 @@ var (
 					Foreground(lipgloss.Color("141")). // Purple
 					Padding(0, 1)
 
+	// Gemini feature indicator (thinking and grounding)
+	geminiFeatureStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("39")). // Blue (Google blue)
+				Padding(0, 1)
+
 	// Search result styles
 	searchResultStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("252")).
